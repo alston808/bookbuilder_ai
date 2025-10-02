@@ -4,8 +4,9 @@ import sys
 
 load_dotenv()
 WORKDIR=os.getenv("WORKDIR")
-os.chdir(WORKDIR)
-sys.path.append(WORKDIR)
+if WORKDIR:
+    os.chdir(WORKDIR)
+    sys.path.append(WORKDIR)
 
 from src.constants import *
 from src.utils import State, DocumentationReady, ApprovedBrainstormingIdea, TranslatorStructuredOutput, TranslatorSpecialCaseStructuredOutput, retrieve_model_name, get_json_schema, NarrativeBrainstormingStructuredOutput, IdeaBrainstormingStructuredOutput, ApprovedWriterChapter,CritiqueWriterChapter,WriterStructuredOutput, NoJson, BadFormattedJson
