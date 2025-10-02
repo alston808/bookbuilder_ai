@@ -4,8 +4,9 @@ import sys
 
 load_dotenv()
 WORKDIR=os.getenv("WORKDIR")
-os.chdir(WORKDIR)
-sys.path.append(WORKDIR)
+if WORKDIR:
+    os.chdir(WORKDIR)
+    sys.path.append(WORKDIR)
 
 from pydantic import BaseModel
 import json
@@ -28,21 +29,21 @@ class GraphConfig(TypedDict):
     Attributes:
     - language: The language in which the system prompts will be generated. eg: 'english', 'spanish', etc...
     - critiques_in_loop: Set to False if you only want a single critique per writing. Set to True if you want multiple critique iterations until the writing is approved.
-    - instructor_model: Select the model for the instructor node. Options include 'openai', 'google', 'meta', 'deepseek', or 'amazon'.
-    - brainstormer_idea_model: Select the model for the brainstormer idea node. Options include 'openai', 'google', 'meta', 'deepseek', or 'amazon'.
-    - brainstormer_critique_model: Select the model for the brainstormer critique node. Options include 'openai', 'google', 'meta', 'deepseek', or 'amazon'.
+    - instructor_model: Select the model for the instructor node. Options include 'openai', 'google', 'meta', 'deepseek', 'amazon', or 'openrouter'.
+    - brainstormer_idea_model: Select the model for the brainstormer idea node. Options include 'openai', 'google', 'meta', 'deepseek', 'amazon', or 'openrouter'.
+    - brainstormer_critique_model: Select the model for the brainstormer critique node. Options include 'openai', 'google', 'meta', 'deepseek', 'amazon', or 'openrouter'.
 
-    - writer_model: Select the model for the writer node. Options include 'openai', 'google', 'meta', 'deepseek', or 'amazon'.
-    - writing_reviewer_model: Select the model for the writing reviewer node. Options include 'openai', 'google', 'meta', 'deepseek', or 'amazon'.
+    - writer_model: Select the model for the writer node. Options include 'openai', 'google', 'meta', 'deepseek', 'amazon', or 'openrouter'.
+    - writing_reviewer_model: Select the model for the writing reviewer node. Options include 'openai', 'google', 'meta', 'deepseek', 'amazon', or 'openrouter'.
     """
     language: Literal['english', 'spanish', 'portuguese', 'poland', 'french', 'german', 'italian', 'dutch','swedish', 'norwegian', 'danish', 'finnish', 'russian', 'chinese', 'japanese', 'korean','arabic', 'turkish', 'greek', 'hebrew']
     critiques_in_loop: bool
-    instructor_model: Literal['openai', 'google','meta','amazon','deepseek']
-    brainstormer_idea_model: Literal['openai','google','meta', 'amazon','deepseek']
-    brainstormer_critique_model: Literal['openai','google','meta', 'amazon','deepseek'] 
-    writer_model: Literal['openai', 'google','meta','amazon','deepseek']
-    writing_reviewer_model: Literal['openai', 'google','meta','amazon','deepseek']
-    translator_model: Literal['openai', 'google','meta','amazon','deepseek']
+    instructor_model: Literal['openai', 'google','meta','amazon','deepseek','openrouter']
+    brainstormer_idea_model: Literal['openai','google','meta', 'amazon','deepseek','openrouter']
+    brainstormer_critique_model: Literal['openai','google','meta', 'amazon','deepseek','openrouter']
+    writer_model: Literal['openai', 'google','meta','amazon','deepseek','openrouter']
+    writing_reviewer_model: Literal['openai', 'google','meta','amazon','deepseek','openrouter']
+    translator_model: Literal['openai', 'google','meta','amazon','deepseek','openrouter']
     n_chapters: int
     min_paragraph_per_chapter: int
     min_sentences_in_each_paragraph_per_chapter: int
@@ -200,7 +201,7 @@ class GraphOutput(TypedDict):
     content: Annotated[List[str], operator.add]
     chapter_names: Annotated[List[str], operator.add]
 
-def _get_model(config: GraphConfig, key:Literal['instructor_model','brainstormer_idea_model','brainstormer_critique_model','writer_model','writing_reviewer_model','translator_model'], temperature:float, default:Literal['openai', 'google','meta','amazon']='openai', top_k=50, top_p=0.9):
+def _get_model(config: GraphConfig, key:Literal['instructor_model','brainstormer_idea_model','brainstormer_critique_model','writer_model','writing_reviewer_model','translator_model'], temperature:float, default:Literal['openai', 'google','meta','amazon','openrouter']='openai', top_k=50, top_p=0.9):
     model = config['configurable'].get(key, default)
     if model == "openai":
         return ChatOpenAI(temperature=temperature, model="gpt-4o-mini", top_k = top_k, top_p = top_p)
@@ -210,11 +211,20 @@ def _get_model(config: GraphConfig, key:Literal['instructor_model','brainstormer
         return ChatGroq(temperature=temperature, model="llama-3.3-70b-versatile", model_kwargs = {'top_p':top_p}) #Groq doesnt support top_k
     elif model == 'deepseek':
         return ChatGroq(temperature=temperature, model="deepseek-r1-distill-llama-70b",model_kwargs = {'top_p':top_p}) #Groq doesnt support top_k
-    
+
     elif model == 'amazon':
         return ChatBedrock(model_id = 'anthropic.claude-3-5-sonnet-20240620-v1:0', model_kwargs = {'temperature':temperature, 'top_k': top_k, 'top_p': top_p})
+    elif model == 'openrouter':
+        return ChatOpenAI(
+            model="meta-llama/llama-3.2-3b-instruct",
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            openai_api_key=os.getenv("OPENROUTER_API_KEY"),
+            openai_api_base="https://openrouter.ai/api/v1"
+        )
     else:
-        raise ValueError(f"Unsupported model: '{model}'. Expected one of: 'openai', 'google', 'meta', 'deepseek', 'amazon'")
+        raise ValueError(f"Unsupported model: '{model}'. Expected one of: 'openai', 'google', 'meta', 'deepseek', 'amazon', 'openrouter'")
 
     
 def check_chapter(msg_content:str, min_paragraphs: int):

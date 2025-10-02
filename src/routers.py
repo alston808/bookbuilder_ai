@@ -4,8 +4,9 @@ import sys
 
 load_dotenv()
 WORKDIR=os.getenv("WORKDIR")
-os.chdir(WORKDIR)
-sys.path.append(WORKDIR)
+if WORKDIR:
+    os.chdir(WORKDIR)
+    sys.path.append(WORKDIR)
 
 from langgraph.graph import END
 from src.utils import State, GraphConfig

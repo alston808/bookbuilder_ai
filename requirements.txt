@@ -6,4 +6,7 @@ python-dotenv
 langchain_groq
 pyyaml
 langchain-aws
+# langchain-openrouter (temporarily commented out due to compatibility issues)
 unidecode
+streamlit
+plotly

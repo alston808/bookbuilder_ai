@@ -4,6 +4,82 @@
 
 This software empowers you to create an entire book tailored to your interests or suggestions. Leveraging an AI-based Autonomous Agents Architecture, the process is highly customizable to ensure your story is crafted exactly as you envision it.
 
+## ✨ NEW FEATURES
+
+- 🚀 **OpenRouter Support**: Use any model available through OpenRouter API
+- 🎨 **Beautiful GUI**: Interactive web interface built with Streamlit
+- 💬 **Real-time Chat**: Interactive feedback system with AI agents
+- 📊 **Progress Visualization**: Visual progress tracking during book creation
+- 📤 **Multiple Export Formats**: Export your book as TXT, JSON, or Markdown
+- 🌐 **Multi-language Support**: 20+ languages supported
+- 🔧 **Flexible Configuration**: Customize every aspect of your book creation
+
+## 🚀 QUICK START
+
+### Option 1: GUI Version (Recommended)
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy and configure environment variables
+cp .env.example .env
+# Edit .env with your API keys
+
+# Launch the GUI
+python main.py gui
+```
+
+Then open your browser to `http://localhost:8501` to access the Book Builder interface!
+
+### Option 2: CLI Version (Original)
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy and configure environment variables
+cp .env.example .env
+# Edit .env with your API keys
+
+# Run CLI version
+python main.py cli
+```
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+Copy `.env.example` to `.env` and configure your API keys:
+
+```bash
+# OpenAI API Key (required for OpenAI models)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Google AI API Key (required for Google models)
+GOOGLE_API_KEY=your_google_api_key_here
+
+# Groq API Key (required for Meta and DeepSeek models)
+GROQ_API_KEY=your_groq_api_key_here
+
+# AWS Bedrock credentials (required for Amazon models)
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+AWS_REGION_NAME=us-east-1
+
+# OpenRouter API Key (required for OpenRouter models)
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+```
+
+### Supported AI Models
+
+- **OpenAI**: `gpt-4o-mini` (via OpenAI API)
+- **Google**: `gemini-exp-1206` (via Google AI API)
+- **Meta**: `llama-3.3-70b-versatile` (via Groq)
+- **DeepSeek**: `deepseek-r1-distill-llama-70b` (via Groq)
+- **Amazon**: `anthropic.claude-3-5-sonnet-20240620-v1:0` (via AWS Bedrock)
+- **OpenRouter**: `meta-llama/llama-3.2-3b-instruct` (via OpenRouter API - supports 1000+ models!)
+
 ## HOW IT WORKS
 
 ### Overview:
@@ -64,23 +140,55 @@ Once all chapters are written and approved, based on the initial configuration, 
 We finally execute the assembler node, which gathers and prepares the book for reading. The finished product includes the book title, prologue, used_models, how was the user requirements and the complete content of your story, ready for you to enjoy or share with others.
 
 
-#### Configuration of bot before stating
-You need to set up the initial configurations that are the following:
-- language: the target language the book will be.
-- critiques in loop: If it is False, it will only critiques once. If it is True, the critique iterations will be undefined until the own AI system defines it is OK to continue.
-- instructor_model: The desired model to use for this specific agent
-- brainstormer_idea_model: The desired model to use for this specific agent
-- brainstormer_critique_model: The desired model to use for this specific agent
-- writer_model: The desired model to use for this specific agent
--  writing_reviewer_model: The desired model to use for this specific agent
-- translator_model: The desired model to use for this specific agent
-- n_chapters: The number of chapters the book must have
-- min_paragraph_per_chapter: The minimum number of paragraphs in each chapter
-- min_sentences_in_each_paragraph_per_chapter: The minimum number of sentences in each paragraph
+## 🎨 GUI Features
+
+The new GUI provides:
+
+- **📊 Visual Progress Tracking**: See real-time progress through each stage
+- **💬 Interactive Chat**: Communicate with AI agents during the process
+- **⚙️ Configuration Panel**: Easy setup of all book parameters
+- **📤 Export Options**: Download books in TXT, JSON, or Markdown format
+- **📚 Book Preview**: Preview completed chapters before export
+- **🌐 Multi-language Interface**: Interface available in multiple languages
+
+## 📖 Usage Examples
+
+### Example Book Idea:
+> "Write a science fiction thriller about a detective who discovers a conspiracy involving advanced AI technology that threatens humanity. The story should be fast-paced with lots of action and plot twists."
+
+### GUI Workflow:
+1. Open the application in your browser
+2. Configure your book settings in the sidebar
+3. Enter your book idea in the main area
+4. Click "Start Creating Book"
+5. Interact with AI agents through the chat interface
+6. Monitor progress with the visual indicator
+7. Export your completed book
+
+## 🔧 Advanced Configuration
+
+For more control over the book creation process, you can:
+
+- **Customize Prompts**: Modify the agent prompts in `src/constants.py`
+- **Add New Models**: Extend the model support in `src/utils.py`
+- **Modify Workflow**: Adjust the agent workflow in `src/agent.py`
+- **Add Languages**: Extend language support in the configuration
+
+### Project Structure:
+```
+├── src/
+│   ├── agent.py          # Main LangGraph workflow
+│   ├── constants.py      # AI agent prompts and configurations
+│   ├── gui.py           # Streamlit GUI application
+│   ├── nodes.py         # Individual agent implementations
+│   ├── routers.py       # Workflow routing logic
+│   └── utils.py         # Utility functions and data models
+├── main.py              # Application entry point
+├── requirements.txt     # Python dependencies
+├── .env.example        # Environment variables template
+└── README.md           # This file
+```
 
 ---
 
 **Book Builder With AI** is designed to bring your ideas to life through a collaborative process with AI, ensuring your story is as close to your vision as possible. Happy writing!
-
-#### Developers disclaimer
-The system currently is configured in order to work in LangGraph Cloud and/or LangGraph Studio. You can refine it to work in your own server if you want it.
