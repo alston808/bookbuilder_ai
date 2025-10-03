@@ -4,22 +4,21 @@ import sys
 
 load_dotenv()
 WORKDIR=os.getenv("WORKDIR")
-os.chdir(WORKDIR)
-sys.path.append(WORKDIR)
+if WORKDIR and os.path.exists(WORKDIR):
+    os.chdir(WORKDIR)
+    sys.path.append(WORKDIR)
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import json
 import operator
 from typing import Annotated, List, Literal, TypedDict
 from langchain_core.messages import AnyMessage, HumanMessage
-from pydantic import BaseModel, Field
+from langchain_core.runnables import RunnableConfig
 from langchain_openai.chat_models import ChatOpenAI
-from langchain_google_genai.chat_models import ChatGoogleGenerativeAI
-from langchain_groq import ChatGroq
-from langchain_aws.chat_models import ChatBedrock
 from src.constants import *
 import time
 import re
+from datetime import datetime
 
 class GraphConfig(TypedDict):
     """
@@ -28,21 +27,20 @@ class GraphConfig(TypedDict):
     Attributes:
     - language: The language in which the system prompts will be generated. eg: 'english', 'spanish', etc...
     - critiques_in_loop: Set to False if you only want a single critique per writing. Set to True if you want multiple critique iterations until the writing is approved.
-    - instructor_model: Select the model for the instructor node. Options include 'openai', 'google', 'meta', 'deepseek', or 'amazon'.
-    - brainstormer_idea_model: Select the model for the brainstormer idea node. Options include 'openai', 'google', 'meta', 'deepseek', or 'amazon'.
-    - brainstormer_critique_model: Select the model for the brainstormer critique node. Options include 'openai', 'google', 'meta', 'deepseek', or 'amazon'.
-
-    - writer_model: Select the model for the writer node. Options include 'openai', 'google', 'meta', 'deepseek', or 'amazon'.
-    - writing_reviewer_model: Select the model for the writing reviewer node. Options include 'openai', 'google', 'meta', 'deepseek', or 'amazon'.
+    - instructor_model: Model for the instructor node (always 'openrouter').
+    - brainstormer_idea_model: Model for the brainstormer idea node (always 'openrouter').
+    - brainstormer_critique_model: Model for the brainstormer critique node (always 'openrouter').
+    - writer_model: Model for the writer node (always 'openrouter').
+    - writing_reviewer_model: Model for the writing reviewer node (always 'openrouter').
     """
     language: Literal['english', 'spanish', 'portuguese', 'poland', 'french', 'german', 'italian', 'dutch','swedish', 'norwegian', 'danish', 'finnish', 'russian', 'chinese', 'japanese', 'korean','arabic', 'turkish', 'greek', 'hebrew']
     critiques_in_loop: bool
-    instructor_model: Literal['openai', 'google','meta','amazon','deepseek']
-    brainstormer_idea_model: Literal['openai','google','meta', 'amazon','deepseek']
-    brainstormer_critique_model: Literal['openai','google','meta', 'amazon','deepseek'] 
-    writer_model: Literal['openai', 'google','meta','amazon','deepseek']
-    writing_reviewer_model: Literal['openai', 'google','meta','amazon','deepseek']
-    translator_model: Literal['openai', 'google','meta','amazon','deepseek']
+    instructor_model: Literal['openrouter']
+    brainstormer_idea_model: Literal['openrouter']
+    brainstormer_critique_model: Literal['openrouter']
+    writer_model: Literal['openrouter']
+    writing_reviewer_model: Literal['openrouter']
+    translator_model: Literal['openrouter']
     n_chapters: int
     min_paragraph_per_chapter: int
     min_sentences_in_each_paragraph_per_chapter: int
@@ -200,21 +198,25 @@ class GraphOutput(TypedDict):
     content: Annotated[List[str], operator.add]
     chapter_names: Annotated[List[str], operator.add]
 
-def _get_model(config: GraphConfig, key:Literal['instructor_model','brainstormer_idea_model','brainstormer_critique_model','writer_model','writing_reviewer_model','translator_model'], temperature:float, default:Literal['openai', 'google','meta','amazon']='openai', top_k=50, top_p=0.9):
-    model = config['configurable'].get(key, default)
-    if model == "openai":
-        return ChatOpenAI(temperature=temperature, model="gpt-4o-mini", top_k = top_k, top_p = top_p)
-    elif model == "google":
-        return ChatGoogleGenerativeAI(temperature=temperature, model="gemini-exp-1206", top_k = top_k, top_p = top_p)
-    elif model == 'meta':
-        return ChatGroq(temperature=temperature, model="llama-3.3-70b-versatile", model_kwargs = {'top_p':top_p}) #Groq doesnt support top_k
-    elif model == 'deepseek':
-        return ChatGroq(temperature=temperature, model="deepseek-r1-distill-llama-70b",model_kwargs = {'top_p':top_p}) #Groq doesnt support top_k
-    
-    elif model == 'amazon':
-        return ChatBedrock(model_id = 'anthropic.claude-3-5-sonnet-20240620-v1:0', model_kwargs = {'temperature':temperature, 'top_k': top_k, 'top_p': top_p})
-    else:
-        raise ValueError(f"Unsupported model: '{model}'. Expected one of: 'openai', 'google', 'meta', 'deepseek', 'amazon'")
+def _get_model(config: RunnableConfig, key:Literal['instructor_model','brainstormer_idea_model','brainstormer_critique_model','writer_model','writing_reviewer_model','translator_model'], temperature:float, default:Literal['openrouter']='openrouter', top_p=0.9):
+    # Always use OpenRouter regardless of config
+    # Check for common typos in environment variables
+    model_name = os.getenv("OPENROUTER_MODEL") or os.getenv("OPENROUUTER_MODEL") or "meta-llama/llama-3.2-3b-instruct"
+
+    if not os.getenv("OPENROUTER_MODEL") and os.getenv("OPENROUUTER_MODEL"):
+        print("WARNING: Found OPENROUUTER_MODEL (typo). Please use OPENROUTER_MODEL in your .env file.")
+
+    return ChatOpenAI(
+        model=model_name,
+        temperature=temperature,
+        top_p=top_p,
+        api_key=os.getenv("OPENROUTER_API_KEY"),
+        base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+        default_headers={
+            "HTTP-Referer": os.getenv("YOUR_SITE_URL", "https://github.com/alston/bookbuilder_ai"),
+            "X-Title": os.getenv("YOUR_SITE_NAME", "Book Builder AI"),
+        }
+    )
 
     
 def check_chapter(msg_content:str, min_paragraphs: int):
@@ -251,22 +253,50 @@ class NoJson(Exception):
 class BadFormattedJson(Exception):
     pass
 
+def save_intermediate_output(step_name, output_data, topic="unknown"):
+    """Save intermediate outputs for debugging"""
+    print(f"🔍 Attempting to save intermediate output: {step_name}")
+    try:
+        # Create temp directory if it doesn't exist
+        temp_dir = "temp_outputs"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Create filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_topic = "".join(c for c in topic if c.isalnum() or c in (' ', '-', '_')).rstrip()[:30]
+        filename = f"{temp_dir}/{step_name}_{safe_topic}_{timestamp}.json"
+
+        # Save the output
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(output_data, f, indent=2, ensure_ascii=False)
+
+        print(f"💾 Saved intermediate output: {filename}")
+        return filename
+    except Exception as e:
+        print(f"⚠️  Failed to save intermediate output: {e}")
+        return None
+
 def cleaning_llm_output(llm_output):
 
     content = llm_output.content
-    
+
     # Phase 1: JSON Extraction
     try:
+        # Try multiple patterns to find JSON
         match = re.search(r"```json\s*([\s\S]*?)\s*```", content)
         if not match:
-            match_inline = re.search(r"({.*?}|\[.*?\])", content, re.DOTALL)
+            # Try case-insensitive json block
+            match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content, re.IGNORECASE)
+        if not match:
+            # Try to find any JSON-like structure
+            match_inline = re.search(r"(\{.*\}|\[.*\])", content, re.DOTALL)
             if match_inline:
-                json_content = match_inline.group(0).strip()
+                json_content = match_inline.group(1).strip()
             else:
                 raise NoJson("The output does not contain a JSON code block")
-        else: 
+        else:
             json_content = match.group(1)
-        
+
     except re.error as e:
         print(f"Regex error during extraction: {str(e)}")
         return content
@@ -276,13 +306,49 @@ def cleaning_llm_output(llm_output):
         # Remove remaining backticks and normalize whitespace
         try:
             json_content = re.sub(r"```", "", json_content)
-            parsed = json.loads(json_content)                                
+            parsed = json.loads(json_content)
+            
+            # Fix chapters_summaries if it contains objects instead of strings
+            if isinstance(parsed, dict) and 'chapters_summaries' in parsed:
+                chapters_summaries = parsed['chapters_summaries']
+                if isinstance(chapters_summaries, list):
+                    fixed_chapters = []
+                    for item in chapters_summaries:
+                        if isinstance(item, dict):
+                            # Extract the content from the dictionary (assuming it has one key-value pair)
+                            if len(item) == 1:
+                                fixed_chapters.append(list(item.values())[0])
+                            else:
+                                # If multiple keys, join them
+                                fixed_chapters.append(' '.join(str(v) for v in item.values()))
+                        else:
+                            fixed_chapters.append(item)
+                    parsed['chapters_summaries'] = fixed_chapters
+            
             return parsed
         except:
             pass
         try:
             json_content = re.sub(r"\s+", " ", json_content)
             parsed = json.loads(json_content)
+            
+            # Fix chapters_summaries if it contains objects instead of strings
+            if isinstance(parsed, dict) and 'chapters_summaries' in parsed:
+                chapters_summaries = parsed['chapters_summaries']
+                if isinstance(chapters_summaries, list):
+                    fixed_chapters = []
+                    for item in chapters_summaries:
+                        if isinstance(item, dict):
+                            # Extract the content from the dictionary (assuming it has one key-value pair)
+                            if len(item) == 1:
+                                fixed_chapters.append(list(item.values())[0])
+                            else:
+                                # If multiple keys, join them
+                                fixed_chapters.append(' '.join(str(v) for v in item.values()))
+                        else:
+                            fixed_chapters.append(item)
+                    parsed['chapters_summaries'] = fixed_chapters
+            
             return parsed
         except:
             pass
@@ -313,6 +379,24 @@ def cleaning_llm_output(llm_output):
     # Phase 4: Parsing
     try:
         parsed = json.loads(json_content)
+        
+        # Fix chapters_summaries if it contains objects instead of strings
+        if isinstance(parsed, dict) and 'chapters_summaries' in parsed:
+            chapters_summaries = parsed['chapters_summaries']
+            if isinstance(chapters_summaries, list):
+                fixed_chapters = []
+                for item in chapters_summaries:
+                    if isinstance(item, dict):
+                        # Extract the content from the dictionary (assuming it has one key-value pair)
+                        if len(item) == 1:
+                            fixed_chapters.append(list(item.values())[0])
+                        else:
+                            # If multiple keys, join them
+                            fixed_chapters.append(' '.join(str(v) for v in item.values()))
+                    else:
+                        fixed_chapters.append(item)
+                parsed['chapters_summaries'] = fixed_chapters
+        
         return parsed
     except:
         try:

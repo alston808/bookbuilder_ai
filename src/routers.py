@@ -4,17 +4,23 @@ import sys
 
 load_dotenv()
 WORKDIR=os.getenv("WORKDIR")
-os.chdir(WORKDIR)
-sys.path.append(WORKDIR)
+if WORKDIR and os.path.exists(WORKDIR):
+    os.chdir(WORKDIR)
+    sys.path.append(WORKDIR)
 
 from langgraph.graph import END
-from src.utils import State, GraphConfig
+from src.utils import State
+from langchain_core.runnables import RunnableConfig
 from typing import Literal
 
 def should_go_to_brainstorming_idea_writer(state: State) -> Literal['human_feedback','brainstorming_idea_writer']:
-    if state.get('instructor_documents', '') == '':
+    has_docs = state.get('instructor_documents', '') != ''
+    print(f"🔀 Router: instructor_documents present: {has_docs}")
+    if not has_docs:
+        print("🔀 Router: Going to human_feedback")
         return "human_feedback"
     else:
+        print("🔀 Router: Going to brainstorming_idea_writer")
         return "brainstorming_idea_writer"
     
 def should_continue_with_idea_critique(state: State) -> Literal['brainstorming_idea_critique','brainstorming_narrative_writer']:
@@ -34,10 +40,10 @@ def should_continue_with_narrative_critique(state: State) -> Literal['brainstorm
         return "brainstorming_narrative_critique"
 
 
-def has_writer_ended_book(state: State, config: GraphConfig) -> Literal["translator", "assembler", 'writer']:
+def has_writer_ended_book(state: State, config: RunnableConfig) -> Literal["translator", "assembler", 'writer']:
 
     if (state['current_chapter'] == len(state['plannified_chapters_summaries']))&(state['is_chapter_approved'] == True):
-        if (config['configurable'].get('language') == 'english')|(config['configurable'].get('language') is None):
+        if (config.get('configurable', {}).get('language') == 'english')|(config.get('configurable', {}).get('language') is None):
             print("The translator agent is not needed in this case")
             return "assembler"
         else:
@@ -45,7 +51,7 @@ def has_writer_ended_book(state: State, config: GraphConfig) -> Literal["transla
     else:
         return "writer"
 
-def has_translator_ended_book(state: State, config: GraphConfig) -> Literal["assembler", 'translator']:
+def has_translator_ended_book(state: State, config: RunnableConfig) -> Literal["assembler", 'translator']:
 
     if (state['translated_current_chapter'] == len(state['plannified_chapters_summaries'])):
         return "assembler"

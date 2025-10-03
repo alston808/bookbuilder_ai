@@ -4,11 +4,12 @@ import sys
 
 load_dotenv()
 WORKDIR=os.getenv("WORKDIR")
-os.chdir(WORKDIR)
-sys.path.append(WORKDIR)
+if WORKDIR and os.path.exists(WORKDIR):
+    os.chdir(WORKDIR)
+    sys.path.append(WORKDIR)
 
 from langgraph.graph import StateGraph
-from src.utils import State, GraphInput, GraphOutput, GraphConfig
+from src.utils import State, GraphInput, GraphOutput
 from src.nodes import *
 from src.routers import *
 
@@ -57,14 +58,11 @@ def defining_edges(workflow: StateGraph):
 
 
 workflow = StateGraph(State, 
-                      input = GraphInput,
-                      output = GraphOutput,
-                      config_schema = GraphConfig)
+                      input_schema = GraphInput,
+                      output_schema = GraphOutput)
 
 workflow.set_entry_point("instructor")
 workflow = defining_nodes(workflow = workflow)
 workflow = defining_edges(workflow = workflow)
 
-app = workflow.compile(
-    interrupt_before=['human_feedback']
-    )
+app = workflow.compile()
